@@ -6,35 +6,35 @@
 
 ## Tính năng
 
-### 🔐 Xác thực & Vault
+### Xác thực & Vault
 - Tạo vault được bảo vệ bằng mật khẩu chính (master password)
 - Dẫn xuất khóa mã hóa bằng **PBKDF2-SHA256** với 600.000 vòng lặp
 - Tùy chọn bật **TOTP 2FA** (Google Authenticator / Authy) — giao diện nhập 6 ô riêng biệt
 - Khóa vault thủ công; vault tự khóa khi đóng ứng dụng
 - Đổi mật khẩu có xác nhận lại
 
-### 📝 Ghi chú mã hóa
+### Ghi chú mã hóa
 - Soạn thảo ghi chú định dạng **Markdown** với toolbar (bold, italic, heading, code, list, blockquote)
 - Chế độ chuyển đổi **Edit / Preview** trực tiếp
 - Tìm kiếm full-text theo tiêu đề và nội dung (debounce 300 ms)
 - Gắn **tags** cho từng ghi chú
 - Toàn bộ nội dung được mã hóa **AES-256-GCM** trước khi ghi vào disk
 
-### 📁 File Vault
+### File Vault
 - Nhập bất kỳ tệp tin nào vào vault — file được mã hóa AES-256-GCM và lưu dưới dạng `~/.secretvault/files/<uuid>.enc`
 - Mỗi file được **ký số ECDSA P-256** trên metadata (tên, hash SHA-256, MIME type, kích thước)
 - Phát hiện **tamper**: cảnh báo ngay nếu metadata file bị chỉnh sửa ngoài ứng dụng
 - Xuất file ra ngoài với hộp thoại lưu tệp
 - Xóa file khỏi vault an toàn
 
-### 🖼️ Steganography (LSB)
+### Steganography (LSB)
 - **Ẩn ghi chú vào hình ảnh PNG**: mã hóa AES-256-GCM nội dung ghi chú rồi nhúng vào các bit thấp nhất (LSB) của kênh màu R/G/B
 - **Xem trước so sánh**: hiển thị ảnh gốc và ảnh kết quả cạnh nhau — không thể phân biệt bằng mắt thường
 - **Trích xuất & giải mã**: chọn ảnh PNG, ứng dụng đọc LSB và giải mã AES-256-GCM để phục hồi nội dung gốc
 - Kết quả xem dạng **Raw text** hoặc **Markdown preview**
 - Xuất ảnh steganographic qua hộp thoại lưu tệp
 
-### 💾 Backup
+### Backup
 - Xuất toàn bộ vault thành file backup được mã hóa + ký số ECDSA
 - Nhập backup để khôi phục dữ liệu
 
