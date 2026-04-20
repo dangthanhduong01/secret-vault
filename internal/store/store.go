@@ -235,20 +235,21 @@ func (s *Store) Unlock(password string) error {
 
 	// ── Auto-migrate v1 → v2 (envelope encryption) ──
 	if vaultFile.DEKEnc == "" {
-		recoveryKey, err := migrateV1toV2(&vaultFile, password)
-		if err != nil {
-			return fmt.Errorf("vault migration failed: %w", err)
-		}
-		// Re-read the migrated file
-		raw2, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if err := json.Unmarshal(raw2, &vaultFile); err != nil {
-			return err
-		}
-		// Store recovery key so the caller can show it to the user
-		s.migrationRecoveryKey = recoveryKey
+		return ErrWrongPassword // refuse to open v1 vaults — user must explicitly migrate with the CLI tool
+		// recoveryKey, err := migrateV1toV2(&vaultFile, password)
+		// if err != nil {
+		// 	return fmt.Errorf("vault migration failed: %w", err)
+		// }
+		// // Re-read the migrated file
+		// raw2, err := os.ReadFile(path)
+		// if err != nil {
+		// 	return err
+		// }
+		// if err := json.Unmarshal(raw2, &vaultFile); err != nil {
+		// 	return err
+		// }
+		// // Store recovery key so the caller can show it to the user
+		// s.migrationRecoveryKey = recoveryKey
 	}
 
 	// Unwrap DEK using KEK (password-derived)
@@ -664,6 +665,74 @@ func GetFilesDir() string {
 	return dir
 }
 
+// ResolveEncPath tries to locate the encrypted file for the given ID.
+//  1. Try the canonical path: <filesDir>/<id>.enc
+//  2. If not found, scan all .enc files in the directory and read their
+//     internal header ID. Return the first match.
+//
+// Returns ("", ErrNotFound) if no file matches.
+func ResolveEncPath(id string) (string, error) {
+	return resolveEncPath(id)
+}
+
+// resolveEncPath is the internal implementation.
+func resolveEncPath(id string) (string, error) {
+	// Step 1: try canonical name
+	canonical := filepath.Join(GetFilesDir(), id+".enc")
+	if _, err := os.Stat(canonical); err == nil {
+		return canonical, nil
+	}
+
+	// Step 2: quick-scan directory headers
+	dir := GetFilesDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("cannot read files directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".enc") {
+			continue
+		}
+		p := filepath.Join(dir, entry.Name())
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		headerID, err := crypto.ReadHeaderID(data)
+		if err != nil {
+			continue // old-format file or corrupted — skip
+		}
+		if headerID == id {
+			return p, nil
+		}
+	}
+
+	return "", ErrNotFound
+}
+
+// readAndDecryptEncFile reads an .enc file (with or without header) and
+// decrypts it. Returns (plaintext, error). Handles both old format (plain
+// base64) and new format (header + base64).
+func readAndDecryptEncFile(path string, dek []byte) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return decryptEncData(data, dek)
+}
+
+// decryptEncData decrypts file bytes that may have a header (new format)
+// or be plain base64 (legacy format).
+func decryptEncData(data, dek []byte) ([]byte, error) {
+	if crypto.HasHeader(data) {
+		plaintext, _, err := crypto.DecryptFileWithHeader(data, dek)
+		return plaintext, err
+	}
+	// Legacy format: entire content is base64-encoded ciphertext
+	return crypto.DecryptWithKey(string(data), dek)
+}
+
 // GetFiles returns all file metadata
 func (s *Store) GetFiles() ([]FileMetadata, error) {
 	s.mu.RLock()
@@ -727,15 +796,15 @@ func (s *Store) AddFile(filePath string) (*FileMetadata, error) {
 	}
 	meta.Signature = metaSig
 
-	// Encrypt the file
-	encrypted, err := crypto.EncryptWithKey(raw, s.dek)
+	// Encrypt the file with internal ID header
+	encryptedBytes, err := crypto.EncryptFileWithHeader(raw, s.dek, meta.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Save encrypted file to disk
 	encPath := filepath.Join(GetFilesDir(), meta.ID+".enc")
-	if err := os.WriteFile(encPath, []byte(encrypted), 0600); err != nil {
+	if err := os.WriteFile(encPath, encryptedBytes, 0600); err != nil {
 		return nil, err
 	}
 
@@ -781,22 +850,21 @@ func (s *Store) GetFileTamperDetails(id string) ([]TamperDetail, *FileMetadata, 
 	// Check ECDSA signature — if valid, nothing to report
 	if verifyMetadata(meta, s.keyPair) {
 		// Signature is fine; check content hash against actual encrypted file
-		encPath := filepath.Join(GetFilesDir(), id+".enc")
-		encData, err := os.ReadFile(encPath)
+		encPath, err := resolveEncPath(id)
 		if err != nil {
 			details = append(details, TamperDetail{
 				Field:  "encrypted_file",
-				Reason: "Encrypted file is missing from disk",
-				Stored: encPath,
+				Reason: "Encrypted file is missing from disk (checked by name and internal ID scan)",
+				Stored: filepath.Join(GetFilesDir(), id+".enc"),
 			})
 			return details, meta, nil
 		}
-		decrypted, err := crypto.DecryptWithKey(string(encData), s.dek)
+		decrypted, err := readAndDecryptEncFile(encPath, s.dek)
 		if err != nil {
 			details = append(details, TamperDetail{
 				Field:  "encrypted_content",
 				Reason: "AES-256-GCM authentication failed — encrypted bytes on disk have been modified or corrupted",
-				Stored: fmt.Sprintf("%d bytes at %s", len(encData), encPath),
+				Stored: encPath,
 			})
 			return details, meta, nil
 		}
@@ -867,17 +935,21 @@ func (s *Store) DecryptFileForced(id string) ([]byte, *FileMetadata, error) {
 		return nil, nil, ErrNotFound
 	}
 
-	encPath := filepath.Join(GetFilesDir(), id+".enc")
+	encPath, err := resolveEncPath(id)
+	if err != nil {
+		return nil, meta, fmt.Errorf("encrypted file missing from disk (checked by name and internal ID scan): %w", err)
+	}
+
 	encData, err := os.ReadFile(encPath)
 	if err != nil {
-		return nil, meta, fmt.Errorf("encrypted file missing from disk: %w", err)
+		return nil, meta, fmt.Errorf("cannot read encrypted file: %w", err)
 	}
 
 	cp := *meta
 	cp.Tampered = true
 
-	decrypted, err := crypto.DecryptWithKey(string(encData), s.dek)
-	if err != nil {
+	decrypted, decErr := decryptEncData(encData, s.dek)
+	if decErr != nil {
 		// AES-GCM decryption failed — the encrypted content has been corrupted.
 		// Return the raw encrypted bytes so the user can at least save them.
 		return encData, &cp, ErrDecryptFailed
@@ -912,15 +984,14 @@ func (s *Store) DecryptFile(id string) ([]byte, *FileMetadata, error) {
 		return nil, &cp, ErrTampered
 	}
 
-	encPath := filepath.Join(GetFilesDir(), id+".enc")
-	encData, err := os.ReadFile(encPath)
+	encPath, err := resolveEncPath(id)
 	if err != nil {
 		cp := *meta
 		cp.Tampered = true
 		return nil, &cp, ErrTampered
 	}
 
-	decrypted, err := crypto.DecryptWithKey(string(encData), s.dek)
+	decrypted, err := readAndDecryptEncFile(encPath, s.dek)
 	if err != nil {
 		// AES-GCM authentication failed → encrypted content was modified on disk
 		cp := *meta
@@ -953,7 +1024,12 @@ func (s *Store) DeleteFile(id string) error {
 	for i, f := range s.data.Files {
 		if f.ID == id {
 			s.data.Files = append(s.data.Files[:i], s.data.Files[i+1:]...)
-			os.Remove(filepath.Join(GetFilesDir(), id+".enc"))
+			// Remove encrypted file — try resolveEncPath to handle renamed files
+			if encPath, err := resolveEncPath(id); err == nil {
+				os.Remove(encPath)
+			} else {
+				os.Remove(filepath.Join(GetFilesDir(), id+".enc"))
+			}
 			return s.saveData()
 		}
 	}
@@ -980,9 +1056,10 @@ func (s *Store) ImportFile(meta FileMetadata, encryptedData string) error {
 		}
 	}
 
-	// Write encrypted file to disk
+	// Write encrypted file to disk with internal ID header
+	fileBytes := crypto.PrependHeaderToBase64([]byte(encryptedData), meta.ID)
 	encPath := filepath.Join(GetFilesDir(), meta.ID+".enc")
-	if err := os.WriteFile(encPath, []byte(encryptedData), 0600); err != nil {
+	if err := os.WriteFile(encPath, fileBytes, 0600); err != nil {
 		return err
 	}
 

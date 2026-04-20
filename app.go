@@ -533,11 +533,24 @@ func (a *App) ExportBackup(recoveryKey string) Response {
 		encPath := filepath.Join(store.GetFilesDir(), f.ID+".enc")
 		encBytes, err := os.ReadFile(encPath)
 		if err != nil {
-			continue // skip files missing on disk
+			// Canonical name not found — try resolving by internal header ID
+			encPath, err = store.ResolveEncPath(f.ID)
+			if err != nil {
+				continue // skip files missing on disk
+			}
+			encBytes, err = os.ReadFile(encPath)
+			if err != nil {
+				continue
+			}
 		}
 
-		// Decrypt with current DEK
-		plaintext, err := crypto.DecryptWithKey(string(encBytes), dek)
+		// Decrypt with current DEK (handles both header and legacy format)
+		var plaintext []byte
+		if crypto.HasHeader(encBytes) {
+			plaintext, _, err = crypto.DecryptFileWithHeader(encBytes, dek)
+		} else {
+			plaintext, err = crypto.DecryptWithKey(string(encBytes), dek)
+		}
 		if err != nil {
 			continue // skip corrupted files
 		}
