@@ -35,9 +35,9 @@ import (
 // Payload layout inside the cover image:
 //
 //   ┌──────────────┬──────────────────────────────┐
-//   │  32 bits      │  data (variable length)      │
-//   │  data length  │  actual secret bytes          │
-//   │  (big-endian) │                                │
+//   │  32 bits     │  data (variable length)      │
+//   │  data length │  actual secret bytes         │
+//   │  (big-endian)│                              │
 //   └──────────────┴──────────────────────────────┘
 //
 // Both the length and data bits are encoded with matrix encoding

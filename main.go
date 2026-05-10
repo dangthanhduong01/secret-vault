@@ -3,6 +3,8 @@ package main
 import (
 	"embed"
 
+	handlerApp "secretvault/internal/app"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -13,7 +15,7 @@ var assets embed.FS
 
 func main() {
 	// Create an instance of the app structure
-	app := NewApp()
+	app := handlerApp.NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -26,7 +28,7 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 15, G: 15, B: 26, A: 1},
-		OnStartup:        app.startup,
+		OnStartup:        app.Startup,
 		Bind: []interface{}{
 			app,
 		},
