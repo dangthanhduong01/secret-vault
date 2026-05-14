@@ -10,9 +10,7 @@ import (
 	"os"
 )
 
-// toNRGBA converts any image to *image.NRGBA so we can manipulate raw
-// (non-premultiplied) pixel bytes directly, avoiding precision loss from
-// premultiplied-alpha conversions that destroy LSBs.
+// toNRGBA converts image to *image.NRGBA to manipulate raw
 func toNRGBA(src image.Image) *image.NRGBA {
 	if n, ok := src.(*image.NRGBA); ok {
 		return n
@@ -38,7 +36,6 @@ func setPixelRGB(img *image.NRGBA, x, y int, r, g, b byte) {
 }
 
 // HideData hides data in an image using LSB steganography
-// Returns the modified image as PNG bytes
 func HideData(imagePath string, data []byte) ([]byte, error) {
 	file, err := os.Open(imagePath)
 	if err != nil {
@@ -55,9 +52,6 @@ func HideData(imagePath string, data []byte) ([]byte, error) {
 }
 
 // isUsablePixel returns true if the pixel at (x,y) is fully opaque (A==255).
-// Only fully opaque pixels are used for LSB steganography. Transparent (A==0)
-// and semi-transparent (0<A<255) pixels are left untouched to preserve the
-// visual appearance of images with transparency and anti-aliased edges.
 func isUsablePixel(img *image.NRGBA, x, y int) bool {
 	off := img.PixOffset(x, y)
 	return img.Pix[off+3] == 255

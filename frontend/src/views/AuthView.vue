@@ -912,7 +912,7 @@ function handleSubmit() {
     </div>
   </Transition>
 
-  <!-- ── New Recovery Key Modal (after password reset) ── -->
+  <!-- New Recovery Key Modal (after password reset) -->
   <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity duration-200"
               leave-to-class="opacity-0" leave-active-class="transition-opacity duration-200">
     <div v-if="newRecoveryKeyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">

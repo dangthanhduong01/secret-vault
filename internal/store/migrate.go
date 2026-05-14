@@ -9,12 +9,8 @@ import (
 	"secretvault/internal/signature"
 )
 
-// migrateV1toV2 upgrades a version-1 vault (password-based encryption)
-// to version-2 (envelope encryption with DEK/KEK).
-// It decrypts everything with the old password-based scheme, generates a
-// DEK, re-encrypts with the DEK, wraps the DEK with a password-derived KEK,
-// and generates a new recovery key that wraps the DEK as well.
-//
+// migrateV1toV2 upgrades a version-1 vault (password-based encryption) to version-2 (envelope encryption with DEK/KEK).
+
 // Returns the new recovery key that the caller must present to the user.
 func migrateV1toV2(vf *VaultFile, password string) (recoveryKey string, err error) {
 	salt := decodeBytes(vf.PasswordSalt)

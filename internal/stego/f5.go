@@ -11,44 +11,12 @@ import (
 	"os"
 )
 
-// ──────────────────────────────────────────────────────────────────────
-// F5 Steganography — Spatial-domain adaptation
-//
-// Classic F5 (Westfeld, 2001) operates in the JPEG DCT domain.
-// This implementation adapts the two core F5 innovations to the
-// spatial (PNG / LSB) domain:
-//
-//   1. Matrix encoding — (1, n, k) Hamming code
-//      Embed k message bits into a group of n = 2^k − 1 cover LSBs
-//      by changing AT MOST 1 value in the group.
-//      Default: k = 2, n = 3  →  embed 2 bits per group of 3 LSBs,
-//      changing ≤ 1 LSB per group (efficiency ≈ 1.33 bits/change
-//      vs 1.0 for naive LSB replacement).
-//
-//   2. Permutative straddling
-//      A deterministic PRNG (seeded from password → SHA-256) shuffles
-//      the pixel-visit order so that embedding positions are spread
-//      pseudo-randomly across the image. This eliminates the
-//      sequential-embedding pattern that chi-squared and RS attacks
-//      exploit.
-//
-// Payload layout inside the cover image:
-//
-//   ┌──────────────┬──────────────────────────────┐
-//   │  32 bits     │  data (variable length)      │
-//   │  data length │  actual secret bytes         │
-//   │  (big-endian)│                              │
-//   └──────────────┴──────────────────────────────┘
-//
-// Both the length and data bits are encoded with matrix encoding
-// over the permuted LSB sequence.
-// ──────────────────────────────────────────────────────────────────────
+// F5 Steganography
 
 // f5Seed is the fixed seed used when no password is provided.
-// In this application the payload is already AES-256-GCM encrypted,
-// so the permutation is a second layer of obscurity, not the primary
-// security mechanism.
-var f5Seed = []byte("SecretVault-F5-Permutation-Seed-2026")
+// Payload is already AES-256-GCM encrypted,
+// The permutation is a second layer of obscurity
+var f5Seed = []byte("SecretVault-F5-Permutation-Seed")
 
 // ── Matrix encoding parameters ──────────────────────────────────────
 // k = 2, n = 2^k − 1 = 3
@@ -57,8 +25,6 @@ const (
 	f5K = 2 // bits embedded per group
 	f5N = 3 // group size (2^k − 1)
 )
-
-// ── Public API ───────────────────────────────────────────────────────
 
 // HideDataF5 hides data in an image using the F5 algorithm.
 // Returns the modified image as PNG bytes.
@@ -102,10 +68,7 @@ func HideDataF5InBytes(imgData []byte, data []byte) ([]byte, error) {
 	return hideDataF5InImage(img, data)
 }
 
-// ── Core implementation ──────────────────────────────────────────────
-
-// hideDataF5InImage embeds data into img using F5 matrix encoding
-// with permutative straddling.
+// hideDataF5InImage embeds data into img using F5 matrix encoding with permutative straddling.
 func hideDataF5InImage(img image.Image, data []byte) ([]byte, error) {
 	nrgba := toNRGBA(img)
 
@@ -186,8 +149,6 @@ func extractDataF5FromImage(img image.Image) ([]byte, error) {
 	return result, nil
 }
 
-// ── LSB index helpers ────────────────────────────────────────────────
-
 // lsbIndex represents a single LSB position in the image:
 // the pixel offset in img.Pix and the channel (0=R, 1=G, 2=B).
 type lsbIndex struct {
@@ -254,36 +215,6 @@ func writeLSBValues(img *image.NRGBA, perm []lsbIndex, lsbs []byte) {
 	}
 }
 
-// ── Matrix encoding (1, 3, 2) ────────────────────────────────────────
-//
-// Hamming code (1, n=3, k=2):
-//
-//   H = | 0 1 1 |   (parity-check matrix, 2×3, rows = k bits)
-//       | 1 0 1 |
-//
-// To embed 2 message bits (m0, m1) into a group of 3 cover LSBs (c0, c1, c2):
-//
-//   syndrome s = H · c  (mod 2)   — a 2-bit vector
-//   diff = s XOR m                — the correction
-//
-//   If diff == (0,0): no change needed.
-//   If diff == (0,1): flip c1  (column 0 of H matches (0,1))
-//   If diff == (1,0): flip c0  (column 1 of H matches (1,0))  — wait, see below
-//   If diff == (1,1): flip c2  (column 2 of H matches (1,1))
-//
-// Column mapping of H:
-//   col 0 → (0, 1)
-//   col 1 → (1, 0)
-//   col 2 → (1, 1)
-//
-// So diff-to-flip:
-//   (0,0) → flip nothing
-//   (0,1) → flip c0  (col 0 = (0,1))
-//   (1,0) → flip c1  (col 1 = (1,0))
-//   (1,1) → flip c2  (col 2 = (1,1))
-//
-// Extraction: just compute H · c (mod 2) to recover the 2 message bits.
-
 // embedF5 modifies lsbs[] in place so that the (1,3,2) matrix encoding
 // carries the message bits from payload.
 func embedF5(lsbs []byte, payload []byte, totalBits int) {
@@ -347,7 +278,7 @@ func extractF5Bits(lsbs []byte, totalMsgBits int) []byte {
 	return bits
 }
 
-// ── Bit utilities ────────────────────────────────────────────────────
+// Bit utilities
 
 // getMsgBit returns bit at position idx (MSB-first within each byte).
 func getMsgBit(data []byte, idx int) byte {
