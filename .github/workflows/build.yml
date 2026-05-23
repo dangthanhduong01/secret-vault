@@ -33,11 +33,19 @@ jobs:
       - name: Pin npm version
         run: npm i -g npm@10.9.3
 
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend (creates frontend/dist for Go embed)
+        working-directory: frontend
+        run: npm run build
+
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
       - name: Generate Wails bindings
         run: wails generate module
 
-      - name: Build app (includes frontend build)
+      - name: Build app
         run: wails build
