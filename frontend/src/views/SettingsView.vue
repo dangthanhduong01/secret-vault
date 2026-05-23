@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import {
   GetVaultInfo, SetupTOTP, EnableTOTP, DisableTOTP,
   ChangePassword, ExportBackup, ImportBackup, IsUnlocked
-} from '../../wailsjs/go/main/App'
+} from '../../wailsjs/go/app/App'
 
 const router = useRouter()
 

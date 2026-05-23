@@ -5,7 +5,7 @@ import { marked } from 'marked'
 import {
   GetNotes, HideInImage, ExtractFromImage,
   IsUnlocked, SelectImage, PreviewHideInImage
-} from '../../wailsjs/go/main/App'
+} from '../../wailsjs/go/app/App'
 
 const router = useRouter()
 

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { CheckVaultExists, CreateVault, UnlockVault, UnlockVaultReadOnly, ImportBackup, ValidateRecoveryKey, ResetPasswordWithRecovery, RestoreFromBackup } from '../../wailsjs/go/main/App'
+import { CheckVaultExists, CreateVault, UnlockVault, UnlockVaultReadOnly, ImportBackup, ValidateRecoveryKey, ResetPasswordWithRecovery, RestoreFromBackup } from '../../wailsjs/go/app/App'
 
 const router = useRouter()
 const vaultExists = ref(false)

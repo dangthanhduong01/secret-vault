@@ -7,7 +7,7 @@ import {
   LockVault, IsUnlocked, IsReadOnly, SearchNotes,
   GetFiles, AddFile, ExportFile, ExportFileForced, GetFileTamperDetails,
   DeleteFile, VerifyFile, ImportBackup
-} from '../../wailsjs/go/main/App'
+} from '../../wailsjs/go/app/App'
 
 const router = useRouter()
 

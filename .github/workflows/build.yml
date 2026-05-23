@@ -49,8 +49,8 @@ jobs:
       - name: Generate Wails bindings (after npm ci)
         run: |
           wails generate module
-          echo "== wailsjs/go/main =="
-          ls -la frontend/wailsjs/go/main || true
+          echo "== wailsjs/go/app =="
+          ls -la frontend/wailsjs/go/app || true
 
       - name: Build frontend
         working-directory: frontend
