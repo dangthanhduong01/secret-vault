@@ -57,4 +57,4 @@ jobs:
         run: npm run build
 
       - name: Build app
-        run: wails build -skipbindings -skipfrontend
+        run: wails build -skipbindings -s
