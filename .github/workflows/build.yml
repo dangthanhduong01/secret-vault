@@ -28,19 +28,21 @@ jobs:
         with:
           node-version: '20.x'
           cache: npm
-          cache-dependency-path: secretvault/frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Pin npm version
+        run: npm i -g npm@10.9.3
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
       - name: Install frontend deps
-        working-directory: secretvault/frontend
+        working-directory: frontend
         run: npm ci
 
       - name: Build frontend
-        working-directory: secretvault/frontend
+        working-directory: frontend
         run: npm run build
 
       - name: Build backend + app
-        working-directory: secretvault
         run: wails build
