@@ -36,6 +36,12 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
+      - name: Ensure frontend/dist exists for Go embed
+        run: |
+          mkdir -p frontend/dist
+          # ensure at least one file exists so `//go:embed all:frontend/dist` doesn't fail
+          echo "placeholder" > frontend/dist/index.html
+
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
@@ -46,7 +52,7 @@ jobs:
           echo "== wailsjs/go/main =="
           ls -la frontend/wailsjs/go/main || true
 
-      - name: Build frontend (creates frontend/dist for Go embed)
+      - name: Build frontend
         working-directory: frontend
         run: npm run build
 
