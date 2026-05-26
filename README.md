@@ -50,7 +50,7 @@ Personal security desktop application — store confidential notes, files, and h
 | Two-Factor Authentication| TOTP (RFC 6238) · HMAC-SHA1 |
 | Steganography | LSB 1-bit per channel · PNG lossless |
 | Vault Format | JSON encrypted at `~/.secretvault/vault.json` (chmod 0600) |
-| Khóa ECDSA | Private key encrypted with AES-256-GCM, stored in vault |
+| Key ECDSA | Private key encrypted with AES-256-GCM, stored in vault |
 
 ---
 
